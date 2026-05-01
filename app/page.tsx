@@ -1,18 +1,18 @@
 'use client';
 import { useState } from 'react';
+import Link from 'next/link'; // Added this import
 
 export default function CafeTrainer() {
   const [name, setName] = useState('');
   const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [selectedCourse, setSelectedCourse] = useState<string | null>(null);
 
   const courses = [
-    { id: 1, title: "Coffee Code + Test", icon: "☕" },
-    { id: 2, title: "English Name Spelling", icon: "✍️" },
-    { id: 3, title: "Batch Brew Explanation", icon: "⚗️" },
-    { id: 4, title: "Unusual Orders & Response", icon: "🗣️" },
-    { id: 5, title: "Quiet Time Tasks", icon: "🧹" },
-    { id: 6, title: "General Final Test", icon: "🎓" }
+    { id: 1, title: "Coffee Code + Test", icon: "☕", path: "/coffee-test" },
+    { id: 2, title: "English Name Spelling", icon: "✍️", path: "#" },
+    { id: 3, title: "Batch Brew Explanation", icon: "⚗️", path: "#" },
+    { id: 4, title: "Unusual Orders & Response", icon: "🗣️", path: "#" },
+    { id: 5, title: "Quiet Time Tasks", icon: "🧹", path: "#" },
+    { id: 6, title: "General Final Test", icon: "🎓", path: "#" }
   ];
 
   // Screen 1: Login
@@ -50,8 +50,7 @@ export default function CafeTrainer() {
 
   // Screen 2: Course Selection
   return (
-    <div className="min-h-screen bg-slate-50">
-      {/* Header */}
+    <div className="min-h-screen bg-slate-50 font-sans">
       <header className="bg-white px-6 pt-12 pb-6 border-b border-slate-100 shadow-sm">
         <div className="flex justify-between items-center">
           <div>
@@ -67,29 +66,32 @@ export default function CafeTrainer() {
         </div>
       </header>
 
-      {/* Course List */}
       <main className="p-6">
         <h3 className="text-sm font-bold text-slate-400 mb-4 uppercase">Select a Module</h3>
         <div className="grid gap-4">
           {courses.map((course) => (
-            <button 
-              key={course.id}
-              onClick={() => setSelectedCourse(course.title)}
-              className="group flex items-center w-full bg-white p-5 rounded-2xl shadow-sm border border-slate-100 hover:border-blue-500 hover:shadow-md transition-all active:scale-98"
+            <Link 
+              key={course.id} 
+              href={course.path}
+              onClick={(e) => {
+                if (course.path === "#") {
+                  e.preventDefault();
+                  alert("This module is coming soon!");
+                }
+              }}
+              className="w-full bg-white p-6 rounded-3xl shadow-sm border border-slate-100 flex items-center justify-between active:scale-95 transition-all"
             >
-              <div className="w-12 h-12 flex items-center justify-center bg-slate-50 rounded-xl group-hover:bg-blue-50 transition-colors mr-4 text-2xl">
-                {course.icon}
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 bg-blue-50 rounded-2xl flex items-center justify-center text-2xl">
+                  {course.icon}
+                </div>
+                <div className="text-left">
+                  <h3 className="font-bold text-slate-900">{course.title}</h3>
+                  <p className="text-[10px] text-slate-400 uppercase tracking-tight">Click to start</p>
+                </div>
               </div>
-              <div className="flex-1 text-left">
-                <p className="text-xs text-blue-600 font-bold">Module 0{course.id}</p>
-                <h4 className="text-slate-800 font-bold">{course.title}</h4>
-              </div>
-              <div className="text-slate-300 group-hover:text-blue-500">
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="9 5l7 7-7 7" />
-                </svg>
-              </div>
-            </button>
+              <span className="text-slate-300 font-bold">→</span>
+            </Link>
           ))}
         </div>
       </main>
