@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import CanvasDraw from 'react-canvas-draw';
 import Tesseract from 'tesseract.js';
-import { supabase } from '@/lib/supabase';
+import { supabase } from '../../lib/supabase';
 
 export default function SmartCoffeeTrainer() {
   // State Management
