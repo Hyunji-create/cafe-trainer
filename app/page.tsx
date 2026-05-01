@@ -70,29 +70,30 @@ export default function CafeTrainer() {
         <h3 className="text-sm font-bold text-slate-400 mb-4 uppercase">Select a Module</h3>
         <div className="grid gap-4">
           {courses.map((course) => (
-            <Link 
-              key={course.id} 
-              href={course.path}
-              onClick={(e) => {
-                if (course.path === "#") {
-                  e.preventDefault();
-                  alert("This module is coming soon!");
-                }
-              }}
-              className="w-full bg-white p-6 rounded-3xl shadow-sm border border-slate-100 flex items-center justify-between active:scale-95 transition-all"
-            >
-              <div className="flex items-center gap-4">
-                <div className="w-12 h-12 bg-blue-50 rounded-2xl flex items-center justify-center text-2xl">
-                  {course.icon}
-                </div>
-                <div className="text-left">
-                  <h3 className="font-bold text-slate-900">{course.title}</h3>
-                  <p className="text-[10px] text-slate-400 uppercase tracking-tight">Click to start</p>
-                </div>
-              </div>
-              <span className="text-slate-300 font-bold">→</span>
-            </Link>
-          ))}
+  <button 
+    key={course.id}
+    onClick={() => {
+      console.log("Button clicked for ID:", course.id); // Check if this shows in console
+      if (course.id === 1) {
+        window.location.assign('/coffee-test'); // Forces a fresh page load
+      } else {
+        alert("Coming soon!");
+      }
+    }}
+    className="w-full bg-white p-6 rounded-3xl shadow-sm border border-slate-100 flex items-center justify-between active:scale-95 transition-all mb-4"
+  >
+    <div className="flex items-center gap-4 text-left">
+      <div className="w-12 h-12 bg-blue-50 rounded-2xl flex items-center justify-center text-2xl">
+        {course.icon}
+      </div>
+      <div>
+        <h3 className="font-bold text-slate-900">{course.title}</h3>
+        <p className="text-[10px] text-slate-400">TAP TO START</p>
+      </div>
+    </div>
+    <div className="text-slate-300 font-bold pr-2">NEXT</div>
+  </button>
+))}
         </div>
       </main>
     </div>
