@@ -1,39 +1,55 @@
-// build trigger
-
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
-import CanvasDraw from 'react-canvas-draw';
-import Tesseract from 'tesseract.js';
-import { useRouter } from 'next/navigation'; // Using the proper Next.js router
+import { useState, useEffect } from 'react';
+import { useForm } from 'react-hook-form'; // Cleaner form handling
+import { useRouter } from 'next/navigation';
 import { supabase } from '../../lib/supabase';
 
-export default function SmartCoffeeTrainer() {
+// Definition for the table data structure
+type CoffeeCodeItem = {
+  id: number;
+  name: string;
+  code: string | null;
+  zone: string | null;
+  is_split: boolean;
+  upper_code: string | null;
+  lower_code: string | null;
+};
+
+type FormValues = {
+  answer: string;
+};
+
+export default function TypingCoffeeTrainer() {
   const router = useRouter();
+  const { register, handleSubmit, reset, setFocus } = useForm<FormValues>();
   
   // State Management
-  const [coffeeLibrary, setCoffeeLibrary] = useState<any[]>([]);
+  const [coffeeLibrary, setCoffeeLibrary] = useState<CoffeeCodeItem[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [loading, setLoading] = useState(true);
   const [isProcessing, setIsProcessing] = useState(false);
-  const [feedback, setFeedback] = useState("");
+  const [feedback, setFeedback] = useState<{message: string; type: 'success' | 'error' | 'neutral'}>({message: "", type: "neutral"});
   
-  const canvasRef = useRef<any>(null);
-
   // 1. Fetch Data from Supabase
   useEffect(() => {
     async function loadCodes() {
+      console.log("Fetching coffee_codes...");
       try {
         const { data, error } = await supabase
           .from('coffee_codes')
           .select('*')
           .order('id', { ascending: true });
 
-        if (error) throw error;
-        if (data) setCoffeeLibrary(data);
+        if (error) {
+          console.error("Supabase Error:", error);
+          setFeedback({message: `Failed to load codes: ${error.message}`, type: 'error'});
+        } else if (data) {
+          setCoffeeLibrary(data as CoffeeCodeItem[]);
+        }
       } catch (err) {
-        console.error("Supabase Error:", err);
-        setFeedback("Failed to load coffee codes.");
+        console.error("Connection Error:", err);
+        setFeedback({message: "Failed to connect to the database.", type: 'error'});
       } finally {
         setLoading(false);
       }
@@ -41,64 +57,78 @@ export default function SmartCoffeeTrainer() {
     loadCodes();
   }, []);
 
+  // Ensure focus remains in the input field when the index changes
+  useEffect(() => {
+    if (!loading && coffeeLibrary.length > 0) {
+      setFocus('answer');
+    }
+  }, [currentIndex, loading, coffeeLibrary, setFocus]);
+
   const item = coffeeLibrary[currentIndex];
 
-  // 2. Helper: Clear Canvas
-  const handleClear = () => {
-    if (canvasRef.current) {
-      canvasRef.current.clear();
-    }
-    setFeedback("");
-  };
-
-  // 3. Helper: Move to Next
+  // 2. Helper: Move to Next
   const handleNext = () => {
+    reset(); // Clear the input field
+    setFeedback({message: "", type: "neutral"});
     if (currentIndex < coffeeLibrary.length - 1) {
       setCurrentIndex(prev => prev + 1);
-      handleClear();
     } else {
-      alert("Training Module Complete! Great work.");
+      alert("Training Module Complete! Excellent focus.");
       router.push('/');
     }
   };
 
-  // 4. AI Verification Logic
-  const verifyDrawing = async () => {
-    if (!canvasRef.current || !item) return;
-
+  // 3. Verification Logic with "Fuzzy" Matching
+  const onSubmit = async (values: FormValues) => {
+    if (isProcessing || !item) return;
     setIsProcessing(true);
-    setFeedback("AI is reading your drawing...");
+
+    const userInput = values.answer;
+    
+    // Safety check if user clicks submit with no text
+    if (!userInput.trim()) {
+      setFeedback({message: " Please type your answer first.", type: 'neutral'});
+      setIsProcessing(false);
+      setFocus('answer');
+      return;
+    }
+
+    // Helper to clean both input and correct answer (uppercase, no spaces)
+    const normalize = (str: string | null) => {
+      if (!str) return '';
+      return str.toUpperCase().trim().replace(/\s+/g, '');
+    };
+
+    const cleanInput = normalize(userInput);
 
     try {
-      // Get the actual drawing canvas
-      const canvasElement = canvasRef.current.canvasContainer.children[1] as HTMLCanvasElement;
-      const drawingDataUrl = canvasElement.toDataURL("image/png");
-
-      const { data: { text } } = await Tesseract.recognize(drawingDataUrl, 'eng');
-      
-      const recognizedText = text.toUpperCase().trim().replace(/\s/g, '');
-      
       if (item.is_split) {
-        const hasUpper = recognizedText.includes(item.upper_code.toUpperCase());
-        const hasLower = recognizedText.includes(item.lower_code.toUpperCase());
+        // Look for BOTH upper and lower codes in the input string
+        const targetUpper = normalize(item.upper_code);
+        const targetLower = normalize(item.lower_code);
+        const hasUpper = cleanInput.includes(targetUpper);
+        const hasLower = cleanInput.includes(targetLower);
 
         if (hasUpper && hasLower) {
-          setFeedback("✅ Perfect split! Moving to next...");
-          setTimeout(handleNext, 1500);
+          setFeedback({message: `✅ Correct split! "${userInput}" accepted.`, type: 'success'});
+          setTimeout(handleNext, 1200);
         } else {
-          setFeedback(`❌ Incorrect. Need "${item.upper_code}" & "${item.lower_code}".`);
+          setFeedback({message: `❌ Incorrect. The targets were "${item.upper_code}" & "${item.lower_code}".`, type: 'error'});
+          setFocus('answer');
         }
       } else {
-        const target = item.code.toUpperCase();
-        if (recognizedText.includes(target)) {
-          setFeedback("✅ Correct! Moving to next...");
-          setTimeout(handleNext, 1500);
+        // Standard single code check
+        const target = normalize(item.code);
+        if (cleanInput === target || cleanInput.includes(target)) {
+          setFeedback({message: "✅ Correct!", type: 'success'});
+          setTimeout(handleNext, 1200);
         } else {
-          setFeedback(`❌ Try again. AI saw: "${recognizedText}"`);
+          setFeedback({message: `❌ Incorrect. The target code was "${item.code}".`, type: 'error'});
+          setFocus('answer');
         }
       }
     } catch (err) {
-      setFeedback("⚠️ AI Error. Please try again.");
+      setFeedback({message: "⚠️ Error verifying answer. Please try again.", type: 'error'});
       console.error(err);
     } finally {
       setIsProcessing(false);
@@ -111,9 +141,9 @@ export default function SmartCoffeeTrainer() {
     </div>
   );
 
-  if (!item) return (
+  if (!item || coffeeLibrary.length === 0) return (
     <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-6 text-center">
-      <p className="text-slate-500 mb-4">No codes found in your database.</p>
+      <p className="text-slate-500 mb-6">No codes found. Verify your 'coffee_codes' table has data and is in the 'public' schema.</p>
       <button onClick={() => router.push('/')} className="text-blue-600 font-bold underline">Go Back</button>
     </div>
   );
@@ -122,86 +152,72 @@ export default function SmartCoffeeTrainer() {
     <div className="min-h-screen bg-slate-50 flex flex-col items-center p-6 font-sans">
       {/* Top Header */}
       <header className="w-full max-w-sm flex justify-between items-center mb-6">
-        <button onClick={() => router.push('/')} className="text-slate-400 text-2xl font-bold">✕</button>
+        <button onClick={() => router.push('/')} className="text-slate-400 text-2xl font-bold p-2 active:scale-95">✕</button>
         <div className="flex flex-col items-center">
           <span className="text-[10px] font-black text-blue-600 bg-blue-100 px-3 py-1 rounded-full uppercase tracking-tighter">
-            Zone: {item.zone || 'TOP'}
+            Zone: {item.zone || 'MAIN'}
           </span>
         </div>
         <span className="text-slate-400 font-mono text-sm">{currentIndex + 1}/{coffeeLibrary.length}</span>
       </header>
 
       {/* Task Card */}
-      <div className="w-full max-w-sm bg-white rounded-3xl p-6 shadow-sm border border-slate-100 mb-6 text-center">
-        <p className="text-slate-400 text-[10px] font-black uppercase tracking-widest mb-1">Practice Drawing</p>
-        <h1 className="text-3xl font-black text-slate-900 mb-4">{item.name}</h1>
+      <div className="w-full max-w-sm bg-white rounded-3xl p-6 shadow-sm border border-slate-100 mb-8 text-center">
+        <p className="text-slate-400 text-[10px] font-black uppercase tracking-widest mb-1">Memorization Test</p>
+        <h1 className="text-3xl font-black text-slate-900 mb-6">{item.name}</h1>
         
-        <div className="flex gap-3">
-          {item.is_split ? (
-            <>
-              <div className="flex-1 bg-blue-50 p-3 rounded-2xl border border-blue-100">
-                <p className="text-[8px] font-bold text-blue-400 uppercase">Milk (Upper)</p>
-                <p className="text-2xl font-black text-blue-700">{item.upper_code}</p>
-              </div>
-              <div className="flex-1 bg-slate-50 p-3 rounded-2xl border border-slate-100">
-                <p className="text-[8px] font-bold text-slate-400 uppercase">Base (Lower)</p>
-                <p className="text-2xl font-black text-slate-800">{item.lower_code}</p>
-              </div>
-            </>
-          ) : (
-            <div className="w-full bg-blue-50 p-4 rounded-2xl border border-blue-100">
-              <p className="text-[8px] font-bold text-blue-400 uppercase">Target Code</p>
-              <p className="text-3xl font-black text-blue-700">{item.code}</p>
-            </div>
-          )}
+        <div className="w-full h-16 bg-slate-100 rounded-full flex items-center justify-center">
+            <p className="text-slate-500 text-sm font-medium">Type the code(s) below</p>
         </div>
       </div>
 
-      {/* Drawing Pad */}
-      <div className="relative bg-white rounded-[45px] shadow-2xl shadow-slate-200 border-[12px] border-white overflow-hidden touch-none">
-        {item.is_split && (
-          <div className="absolute top-1/2 left-0 w-full border-t-2 border-dashed border-blue-100 pointer-events-none z-10 flex justify-center">
-            <span className="bg-white px-4 py-1 -mt-3 rounded-full text-[8px] font-black text-blue-300 border border-blue-50 uppercase tracking-widest">
-              Milk / Base Split
-            </span>
+      {/* Input Form */}
+      <form onSubmit={handleSubmit(onSubmit)} className="w-full max-w-sm flex flex-col gap-4">
+        {item.is_split ? (
+          <div className="p-4 bg-white rounded-2xl border border-slate-100 text-center">
+            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Provide both</p>
+            <p className="text-lg font-black text-slate-800">Milk (Upper) + Base (Lower)</p>
           </div>
-        )}
-        
-        <CanvasDraw
-          ref={canvasRef}
-          brushColor="#1e293b"
-          brushRadius={5}
-          canvasWidth={320}
-          canvasHeight={320}
-          lazyRadius={0}
-          backgroundColor="transparent"
+        ) : null}
+
+        <input
+          {...register('answer')}
+          type="text"
+          placeholder={item.is_split ? "Example: m,b" : "Example: l"}
+          className="w-full p-6 text-2xl font-black text-center text-slate-950 uppercase bg-white rounded-3xl shadow-lg shadow-slate-200 border-4 border-white focus:border-blue-300 focus:ring-0 placeholder:text-slate-200 transition-all"
+          disabled={feedback.type === 'success'}
+          autoComplete="off"
+          autoCorrect="off"
+          autoCapitalize="characters"
         />
-      </div>
 
-      {/* Feedback Message */}
-      <div className={`mt-6 min-h-[24px] font-bold text-center px-4 ${feedback.includes('✅') ? 'text-green-500' : 'text-orange-500'}`}>
-        {feedback}
-      </div>
+        {/* Feedback Message */}
+        <div className={`mt-2 min-h-[24px] font-bold text-center px-4 ${feedback.type === 'success' ? 'text-green-500' : 'text-orange-500'}`}>
+          {feedback.message}
+        </div>
 
-      {/* Footer Buttons */}
-      <div className="grid grid-cols-2 gap-4 w-full max-w-sm mt-auto pb-8">
-        <button 
-          onClick={handleClear}
-          disabled={isProcessing}
-          className="p-5 bg-white text-slate-400 rounded-3xl font-bold border-2 border-slate-100 active:scale-95 transition-all"
-        >
-          Clear
-        </button>
-        <button 
-          onClick={verifyDrawing}
-          disabled={isProcessing}
-          className={`${
-            isProcessing ? 'bg-slate-300' : 'bg-blue-600'
-          } p-5 text-white rounded-3xl font-black shadow-xl shadow-blue-200 active:scale-95 transition-all`}
-        >
-          {isProcessing ? "Reading..." : "Check Mark"}
-        </button>
-      </div>
+        {/* Footer Buttons */}
+        <div className="grid grid-cols-2 gap-4 w-full max-w-sm mt-auto pb-8">
+            <button 
+                type="button" // Important: Stop form submission
+                onClick={() => reset()}
+                disabled={isProcessing}
+                className="p-5 bg-white text-slate-400 rounded-3xl font-bold border-2 border-slate-100 active:scale-95 transition-all"
+            >
+                Clear
+            </button>
+            <button 
+                type="submit"
+                disabled={isProcessing || feedback.type === 'success'}
+                className={`${
+                feedback.type === 'success' ? 'bg-green-500' : 
+                isProcessing ? 'bg-slate-300' : 'bg-blue-600'
+                } p-5 text-white rounded-3xl font-black shadow-xl shadow-blue-200 active:scale-95 transition-all`}
+            >
+                {feedback.type === 'success' ? "Checked!" : isProcessing ? "Verifying..." : "Check Answer"}
+            </button>
+        </div>
+      </form>
     </div>
   );
 }
