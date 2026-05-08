@@ -1,9 +1,8 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useForm } from 'react-hook-form'; // Cleaner form handling
 import { useRouter } from 'next/navigation';
-import { supabase } from '../../lib/supabase';
 
 // Definition for the table data structure
 type CoffeeCodeItem = {
@@ -14,6 +13,7 @@ type CoffeeCodeItem = {
   is_split: boolean;
   upper_code: string | null;
   lower_code: string | null;
+  quiz_type: string | null;
 };
 
 type FormValues = {
@@ -22,39 +22,49 @@ type FormValues = {
 
 export default function TypingCoffeeTrainer() {
   const router = useRouter();
-  const { register, handleSubmit, reset, setFocus } = useForm<FormValues>();
+  const { register, handleSubmit, reset, setFocus, setValue, getValues } = useForm<FormValues>();
+  const [showSpecialChars, setShowSpecialChars] = useState(false);
+  const specialChars = ['Ⓢ', '¡', '↓', '↑'];
+  const inputRef = useRef<HTMLInputElement | null>(null);
+  const cursorPosRef = useRef<number>(0);
+
+  const { ref: formRef, ...registerRest } = register('answer');
   
   // State Management
   const [coffeeLibrary, setCoffeeLibrary] = useState<CoffeeCodeItem[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
+  const [currentLevel, setCurrentLevel] = useState(1);
   const [loading, setLoading] = useState(true);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [maxLevel, setMaxLevel] = useState(1);
   const [feedback, setFeedback] = useState<{message: string; type: 'success' | 'error' | 'neutral'}>({message: "", type: "neutral"});
   
-  // 1. Fetch Data from Supabase
-  useEffect(() => {
-    async function loadCodes() {
-      console.log("Fetching coffee_codes...");
-      try {
-        const { data, error } = await supabase
-          .from('coffee_codes')
-          .select('*')
-          .order('id', { ascending: true });
-
-        if (error) {
-          console.error("Supabase Error:", error);
-          setFeedback({message: `Failed to load codes: ${error.message}`, type: 'error'});
-        } else if (data) {
-          setCoffeeLibrary(data as CoffeeCodeItem[]);
-        }
-      } catch (err) {
-        console.error("Connection Error:", err);
-        setFeedback({message: "Failed to connect to the database.", type: 'error'});
-      } finally {
-        setLoading(false);
+  // 1. Fetch Data from API Route
+  const loadCodes = async (level: number = currentLevel) => {
+    setLoading(true);
+    try {
+      const res = await fetch(`/api/coffee-codes?level=${level}`);
+      
+      if (!res.ok) {
+        const errorData = await res.json();
+        console.error("API Error:", errorData);
+        setFeedback({message: `Failed to load codes: ${errorData.error}`, type: 'error'});
+      } else {
+        const { data, maxLevel: max } = await res.json();
+        setCoffeeLibrary(data as CoffeeCodeItem[]);
+        setMaxLevel(max);
+        setCurrentLevel(level);
       }
+    } catch (err) {
+      console.error("Connection Error:", err);
+      setFeedback({message: "Failed to connect to the server.", type: 'error'});
+    } finally {
+      setLoading(false);
     }
-    loadCodes();
+  };
+
+  useEffect(() => {
+    loadCodes(1);
   }, []);
 
   // Ensure focus remains in the input field when the index changes
@@ -63,6 +73,8 @@ export default function TypingCoffeeTrainer() {
       setFocus('answer');
     }
   }, [currentIndex, loading, coffeeLibrary, setFocus]);
+
+  const [isComplete, setIsComplete] = useState(false);
 
   const item = coffeeLibrary[currentIndex];
 
@@ -73,8 +85,7 @@ export default function TypingCoffeeTrainer() {
     if (currentIndex < coffeeLibrary.length - 1) {
       setCurrentIndex(prev => prev + 1);
     } else {
-      alert("Training Module Complete! Excellent focus.");
-      router.push('/');
+      setIsComplete(true);
     }
   };
 
@@ -118,12 +129,13 @@ export default function TypingCoffeeTrainer() {
         }
       } else {
         // Standard single code check
-        const target = normalize(item.code);
+        const target = normalize(item.quiz_type === 'code_to_name' ? item.name : item.code);
+        console.log(cleanInput, target);
         if (cleanInput === target || cleanInput.includes(target)) {
           setFeedback({message: "✅ Correct!", type: 'success'});
           setTimeout(handleNext, 1200);
         } else {
-          setFeedback({message: `❌ Incorrect. The target code was "${item.code}".`, type: 'error'});
+          setFeedback({message: `❌ Incorrect. The target answer was "${item.quiz_type === 'code_to_name' ? item.name : item.code}".`, type: 'error'});
           setFocus('answer');
         }
       }
@@ -134,6 +146,54 @@ export default function TypingCoffeeTrainer() {
       setIsProcessing(false);
     }
   };
+
+  if (isComplete) return (
+    <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-6 text-center">
+      <div className="w-full max-w-sm bg-white rounded-3xl p-8 shadow-xl border border-slate-100">
+        <div className="inline-block p-4 bg-green-50 rounded-2xl mb-4">
+          <span className="text-5xl">🎉</span>
+        </div>
+        <h1 className="text-2xl font-black text-slate-900 mb-2">Level Complete!</h1>
+        <p className="text-slate-500 mb-2">You nailed all level {currentLevel} questions.</p>
+        <p className="text-slate-400 text-sm mb-8">Excellent focus. Keep it up!</p>
+        <div className="flex flex-col gap-3">
+          {currentLevel < maxLevel ? (
+            <button
+              onClick={() => {
+                setIsComplete(false);
+                setCurrentIndex(0);
+                reset();
+                setFeedback({message: "", type: "neutral"});
+                loadCodes(currentLevel + 1);
+              }}
+              className="w-full bg-blue-600 hover:bg-blue-700 text-white p-4 rounded-xl font-bold shadow-lg shadow-blue-200 transition-all active:scale-95 cursor-pointer"
+            >
+              Next Level →
+            </button>
+          ) : (
+            <button
+              onClick={() => router.push('/')}
+              className="w-full bg-blue-600 hover:bg-blue-700 text-white p-4 rounded-xl font-bold shadow-lg shadow-blue-200 transition-all active:scale-95 cursor-pointer"
+            >
+              Back to Modules
+            </button>
+          )}
+          <button
+            onClick={() => {
+              setIsComplete(false);
+              setCurrentIndex(0);
+              reset();
+              setFeedback({message: "", type: "neutral"});
+              loadCodes(currentLevel);
+            }}
+            className="w-full bg-slate-100 hover:bg-slate-200 text-slate-600 p-4 rounded-xl font-bold transition-all active:scale-95 cursor-pointer"
+          >
+            Try Again
+          </button>
+        </div>
+      </div>
+    </div>
+  );
 
   if (loading) return (
     <div className="min-h-screen bg-slate-50 flex items-center justify-center">
@@ -149,25 +209,41 @@ export default function TypingCoffeeTrainer() {
   );
 
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-col items-center p-6 font-sans">
+    <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-6 font-sans">
       {/* Top Header */}
-      <header className="w-full max-w-sm flex justify-between items-center mb-6">
-        <button onClick={() => router.push('/')} className="text-slate-400 text-2xl font-bold p-2 active:scale-95">✕</button>
-        <div className="flex flex-col items-center">
+      <header className="w-full max-w-sm flex justify-between items-center mb-6 fixed top-0 left-0 right-0 bg-slate-50 py-6 z-10 mx-auto">
+        <button onClick={() => router.back()} className="text-slate-400 text-2xl font-bold p-2 active:scale-95 cursor-pointer">
+          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M19 12H5" /><path d="M12 19l-7-7 7-7" />
+          </svg>
+        </button>
+        <div className="flex flex-col items-center gap-1">
           <span className="text-[10px] font-black text-blue-600 bg-blue-100 px-3 py-1 rounded-full uppercase tracking-tighter">
-            Zone: {item.zone || 'MAIN'}
+            Coffee Code
           </span>
         </div>
-        <span className="text-slate-400 font-mono text-sm">{currentIndex + 1}/{coffeeLibrary.length}</span>
+        <span className="text-slate-400 font-mono text-sm"></span>
       </header>
+
+      {/* Level & Progress */}
+      <div className="w-full max-w-sm flex justify-between items-center mb-2">
+        <span className="text-[10px] font-black text-green-600 bg-green-100 px-3 py-1 rounded-full uppercase tracking-tighter">
+          Level {currentLevel} / {maxLevel}
+        </span>
+        <span className="text-slate-400 font-mono text-sm">{currentIndex + 1}/{coffeeLibrary.length}</span>
+      </div>
 
       {/* Task Card */}
       <div className="w-full max-w-sm bg-white rounded-3xl p-6 shadow-sm border border-slate-100 mb-8 text-center">
         <p className="text-slate-400 text-[10px] font-black uppercase tracking-widest mb-1">Memorization Test</p>
-        <h1 className="text-3xl font-black text-slate-900 mb-6">{item.name}</h1>
+        <h1 className="text-3xl font-black text-slate-900 mb-6">
+          {item.quiz_type === 'code_to_name' ? item.code : item.name}
+        </h1>
         
         <div className="w-full h-16 bg-slate-100 rounded-full flex items-center justify-center">
-            <p className="text-slate-500 text-sm font-medium">Type the code(s) below</p>
+            <p className="text-slate-500 text-sm font-medium">
+              {item.quiz_type === 'code_to_name' ? 'Type the name(s) below' : 'Type the code(s) below'}
+            </p>
         </div>
       </div>
 
@@ -180,16 +256,62 @@ export default function TypingCoffeeTrainer() {
           </div>
         ) : null}
 
-        <input
-          {...register('answer')}
-          type="text"
-          placeholder={item.is_split ? "Example: m,b" : "Example: l"}
-          className="w-full p-6 text-2xl font-black text-center text-slate-950 uppercase bg-white rounded-3xl shadow-lg shadow-slate-200 border-4 border-white focus:border-blue-300 focus:ring-0 placeholder:text-slate-200 transition-all"
-          disabled={feedback.type === 'success'}
-          autoComplete="off"
-          autoCorrect="off"
-          autoCapitalize="characters"
-        />
+        <div className="relative w-full">
+          <input
+            {...registerRest}
+            ref={(e) => {
+              formRef(e);
+              inputRef.current = e;
+            }}
+            type="text"
+            placeholder={item.is_split ? "Example: m,b" : "Example: l"}
+            className="w-full p-6 pl-14 text-2xl font-black text-center text-slate-950 uppercase bg-white rounded-3xl shadow-lg shadow-slate-200 border-4 border-white focus:border-blue-300 focus:ring-0 placeholder:text-slate-200 transition-all"
+            disabled={feedback.type === 'success'}
+            autoComplete="off"
+            autoCorrect="off"
+            autoCapitalize="characters"
+            onSelect={(e) => {
+              cursorPosRef.current = (e.target as HTMLInputElement).selectionStart || 0;
+            }}
+          />
+          <button
+            type="button"
+            onClick={() => setShowSpecialChars(!showSpecialChars)}
+            className="absolute left-4 top-1/2 -translate-y-1/2 w-8 h-8 bg-slate-100 hover:bg-blue-100 rounded-lg flex items-center justify-center text-sm text-slate-500 active:scale-95 transition-all cursor-pointer"
+            title="Special characters"
+          >
+            #
+          </button>
+          {showSpecialChars && (
+            <div className="absolute left-0 top-full mt-2 bg-white border border-slate-200 rounded-2xl shadow-lg p-2 flex gap-2 z-20">
+              {specialChars.map((char) => (
+                <button
+                  key={char}
+                  type="button"
+                  onClick={() => {
+                    const current = getValues('answer') || '';
+                    const pos = cursorPosRef.current;
+                    const newValue = current.slice(0, pos) + char + current.slice(pos);
+                    setValue('answer', newValue);
+                    setShowSpecialChars(false);
+                    // Restore cursor position after the inserted character
+                    setTimeout(() => {
+                      if (inputRef.current) {
+                        inputRef.current.focus();
+                        const newPos = pos + char.length;
+                        inputRef.current.setSelectionRange(newPos, newPos);
+                        cursorPosRef.current = newPos;
+                      }
+                    }, 0);
+                  }}
+                  className="w-10 h-10 bg-slate-50 hover:bg-blue-100 rounded-xl flex items-center justify-center text-lg font-bold text-slate-700 active:scale-95 transition-all cursor-pointer"
+                >
+                  {char}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
 
         {/* Feedback Message */}
         <div className={`mt-2 min-h-[24px] font-bold text-center px-4 ${feedback.type === 'success' ? 'text-green-500' : 'text-orange-500'}`}>
@@ -202,7 +324,7 @@ export default function TypingCoffeeTrainer() {
                 type="button" // Important: Stop form submission
                 onClick={() => reset()}
                 disabled={isProcessing}
-                className="p-5 bg-white text-slate-400 rounded-3xl font-bold border-2 border-slate-100 active:scale-95 transition-all"
+                className="p-5 bg-white text-slate-400 rounded-3xl font-bold border-2 border-slate-100 active:scale-95 transition-all cursor-pointer"
             >
                 Clear
             </button>
@@ -212,7 +334,7 @@ export default function TypingCoffeeTrainer() {
                 className={`${
                 feedback.type === 'success' ? 'bg-green-500' : 
                 isProcessing ? 'bg-slate-300' : 'bg-blue-600'
-                } p-5 text-white rounded-3xl font-black shadow-xl shadow-blue-200 active:scale-95 transition-all`}
+                } p-5 text-white rounded-3xl font-black shadow-xl shadow-blue-200 active:scale-95 transition-all cursor-pointer`}
             >
                 {feedback.type === 'success' ? "Checked!" : isProcessing ? "Verifying..." : "Check Answer"}
             </button>
