@@ -18,18 +18,26 @@ type CoffeeCodeItem = {
 
 type FormValues = {
   answer: string;
+  upperAnswer: string;
+  lowerAnswer: string;
 };
 
 export default function TypingCoffeeTrainer() {
   const router = useRouter();
   const { name: userName } = useUser();
   const { register, handleSubmit, reset, setFocus, setValue, getValues } = useForm<FormValues>();
-  const [showSpecialChars, setShowSpecialChars] = useState(false);
+  const [showSpecialChars, setShowSpecialChars] = useState<string | false>(false);
   const specialChars = ['Ⓢ', '¡', '↓', '↑'];
   const inputRef = useRef<HTMLInputElement | null>(null);
+  const upperInputRef = useRef<HTMLInputElement | null>(null);
+  const lowerInputRef = useRef<HTMLInputElement | null>(null);
   const cursorPosRef = useRef<number>(0);
+  const upperCursorRef = useRef<number>(0);
+  const lowerCursorRef = useRef<number>(0);
 
   const { ref: formRef, ...registerRest } = register('answer');
+  const { ref: upperFormRef, ...upperRegisterRest } = register('upperAnswer');
+  const { ref: lowerFormRef, ...lowerRegisterRest } = register('lowerAnswer');
   
   // State Management
   const [coffeeLibrary, setCoffeeLibrary] = useState<CoffeeCodeItem[]>([]);
@@ -100,38 +108,50 @@ export default function TypingCoffeeTrainer() {
     if (isProcessing || !item) return;
     setIsProcessing(true);
 
-    const userInput = values.answer;
-    
-    // Safety check if user clicks submit with no text
-    if (!userInput.trim()) {
-      setFeedback({message: " Please type your answer first.", type: 'neutral'});
-      setIsProcessing(false);
-      setFocus('answer');
-      return;
-    }
-
     // Helper to clean both input and correct answer (uppercase, no spaces)
-    const normalize = (str: string | null) => {
+    const normalize = (str: string | null | undefined) => {
       if (!str) return '';
       return str.toUpperCase().trim().replace(/\s+/g, '');
     };
 
-    const cleanInput = normalize(userInput);
+    // For split items, validate upper and lower separately
+    if (item.is_split) {
+      if (!values.upperAnswer?.trim() || !values.lowerAnswer?.trim()) {
+        setFeedback({message: " Please type both answers.", type: 'neutral'});
+        setIsProcessing(false);
+        if (!values.upperAnswer?.trim()) {
+          setFocus('upperAnswer');
+        } else {
+          setFocus('lowerAnswer');
+        }
+        return;
+      }
+    } else {
+      const userInput = values.answer;
+      if (!userInput?.trim()) {
+        setFeedback({message: " Please type your answer first.", type: 'neutral'});
+        setIsProcessing(false);
+        setFocus('answer');
+        return;
+      }
+    }
+
+    const cleanInput = normalize(values.answer);
 
     try {
       if (item.is_split) {
-        // Look for BOTH upper and lower codes in the input string
+        // Check upper and lower code separately
+        const upperInput = normalize(values.upperAnswer);
+        const lowerInput = normalize(values.lowerAnswer);
         const targetUpper = normalize(item.upper_code);
         const targetLower = normalize(item.lower_code);
-        const hasUpper = cleanInput.includes(targetUpper);
-        const hasLower = cleanInput.includes(targetLower);
 
-        if (hasUpper && hasLower) {
-          setFeedback({message: `✅ Correct split! "${userInput}" accepted.`, type: 'success'});
+        if (upperInput === targetUpper && lowerInput === targetLower) {
+          setFeedback({message: `✅ Correct split!`, type: 'success'});
           setTimeout(handleNext, 1200);
         } else {
-          setFeedback({message: `❌ Incorrect. The targets were "${item.upper_code}" & "${item.lower_code}".`, type: 'error'});
-          setFocus('answer');
+          setFeedback({message: `❌ Incorrect. The targets code was "${item.upper_code}/${item.lower_code}".`, type: 'error'});
+          setFocus('upperAnswer');
         }
       } else {
         // Standard single code check
@@ -141,7 +161,7 @@ export default function TypingCoffeeTrainer() {
           setFeedback({message: "✅ Correct!", type: 'success'});
           setTimeout(handleNext, 1200);
         } else {
-          setFeedback({message: `❌ Incorrect. The target answer was "${item.code}".`, type: 'error'});
+          setFeedback({message: `❌ Incorrect. The target code was "${item.code}".`, type: 'error'});
           setFocus('answer');
         }
       }
@@ -256,68 +276,178 @@ export default function TypingCoffeeTrainer() {
       {/* Input Form */}
       <form onSubmit={handleSubmit(onSubmit)} className="w-full max-w-sm flex flex-col gap-4">
         {item.is_split ? (
-          <div className="p-4 bg-white rounded-2xl border border-slate-100 text-center">
-            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Provide both</p>
-            <p className="text-lg font-black text-slate-800">Milk (Upper) + Base (Lower)</p>
-          </div>
-        ) : null}
-
-        <div className="relative w-full">
-          <input
-            {...registerRest}
-            ref={(e) => {
-              formRef(e);
-              inputRef.current = e;
-            }}
-            type="text"
-            placeholder={item.is_split ? "Example: m,b" : "Example: l"}
-            className="w-full p-6 pl-14 text-2xl font-black text-center text-slate-950 uppercase bg-white rounded-3xl shadow-lg shadow-slate-200 border-4 border-white focus:border-blue-300 focus:ring-0 placeholder:text-slate-200 transition-all"
-            disabled={feedback.type === 'success'}
-            autoComplete="off"
-            autoCorrect="off"
-            autoCapitalize="characters"
-            onSelect={(e) => {
-              cursorPosRef.current = (e.target as HTMLInputElement).selectionStart || 0;
-            }}
-          />
-          <button
-            type="button"
-            onClick={() => setShowSpecialChars(!showSpecialChars)}
-            className="absolute left-4 top-1/2 -translate-y-1/2 w-8 h-8 bg-slate-100 hover:bg-blue-100 rounded-lg flex items-center justify-center text-sm text-slate-500 active:scale-95 transition-all cursor-pointer"
-            title="Special characters"
-          >
-            #
-          </button>
-          {showSpecialChars && (
-            <div className="absolute left-0 top-full mt-2 bg-white border border-slate-200 rounded-2xl shadow-lg p-2 flex gap-2 z-20">
-              {specialChars.map((char) => (
-                <button
-                  key={char}
-                  type="button"
-                  onClick={() => {
-                    const current = getValues('answer') || '';
-                    const pos = cursorPosRef.current;
-                    const newValue = current.slice(0, pos) + char + current.slice(pos);
-                    setValue('answer', newValue);
-                    setShowSpecialChars(false);
-                    // Restore cursor position after the inserted character
-                    setTimeout(() => {
-                      if (inputRef.current) {
-                        inputRef.current.focus();
-                        const newPos = pos + char.length;
-                        inputRef.current.setSelectionRange(newPos, newPos);
-                        cursorPosRef.current = newPos;
-                      }
-                    }, 0);
+          <>
+            <div className="flex flex-col items-center gap-0">
+              <div className="relative w-full">
+                <input
+                  {...upperRegisterRest}
+                  ref={(e) => {
+                    upperFormRef(e);
+                    upperInputRef.current = e;
                   }}
-                  className="w-10 h-10 bg-slate-50 hover:bg-blue-100 rounded-xl flex items-center justify-center text-lg font-bold text-slate-700 active:scale-95 transition-all cursor-pointer"
+                  type="text"
+                  placeholder="Example: l"
+                  className="w-full p-5 pl-14 text-2xl font-black text-center text-slate-950 uppercase bg-white rounded-t-3xl shadow-sm border-4 border-white focus:border-blue-300 focus:ring-0 focus:outline-none placeholder:text-slate-200 transition-all"
+                  disabled={feedback.type === 'success'}
+                  autoComplete="off"
+                  autoCorrect="off"
+                  autoCapitalize="characters"
+                  onSelect={(e) => { upperCursorRef.current = (e.target as HTMLInputElement).selectionStart || 0; }}
+                />
+                <button
+                  type="button"
+                  tabIndex={-1}
+                  onClick={() => setShowSpecialChars(showSpecialChars === 'upper' ? false : 'upper')}
+                  className="absolute left-4 top-1/2 -translate-y-1/2 w-8 h-8 bg-slate-100 hover:bg-blue-100 rounded-lg flex items-center justify-center text-sm text-slate-500 active:scale-95 transition-all cursor-pointer"
+                  title="Special characters"
                 >
-                  {char}
+                  #
                 </button>
-              ))}
+                {showSpecialChars === 'upper' && (
+                  <div className="absolute left-0 top-full mt-2 bg-white border border-slate-200 rounded-2xl shadow-lg p-2 flex gap-2 z-20">
+                    {specialChars.map((char) => (
+                      <button
+                        key={char}
+                        type="button"
+                        onClick={() => {
+                          const current = getValues('upperAnswer') || '';
+                          const pos = upperCursorRef.current;
+                          const newValue = current.slice(0, pos) + char + current.slice(pos);
+                          setValue('upperAnswer', newValue);
+                          setShowSpecialChars(false);
+                          setTimeout(() => {
+                            if (upperInputRef.current) {
+                              upperInputRef.current.focus();
+                              const newPos = pos + char.length;
+                              upperInputRef.current.setSelectionRange(newPos, newPos);
+                              upperCursorRef.current = newPos;
+                            }
+                          }, 0);
+                        }}
+                        className="w-10 h-10 bg-slate-50 hover:bg-blue-100 rounded-xl flex items-center justify-center text-lg font-bold text-slate-700 active:scale-95 transition-all cursor-pointer"
+                      >
+                        {char}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+              <div className="w-full h-[2px] bg-slate-900"></div>
+              <div className="relative w-full">
+                <input
+                  {...lowerRegisterRest}
+                  ref={(e) => {
+                    lowerFormRef(e);
+                    lowerInputRef.current = e;
+                  }}
+                  type="text"
+                  placeholder="Example: l"
+                  className="w-full p-5 pl-14 text-2xl font-black text-center text-slate-950 uppercase bg-white rounded-b-3xl shadow-lg shadow-slate-200 border-4 border-white focus:border-blue-300 focus:ring-0 focus:outline-none placeholder:text-slate-200 transition-all"
+                  disabled={feedback.type === 'success'}
+                  autoComplete="off"
+                  autoCorrect="off"
+                  autoCapitalize="characters"
+                  onSelect={(e) => { lowerCursorRef.current = (e.target as HTMLInputElement).selectionStart || 0; }}
+                />
+                <button
+                  type="button"
+                  tabIndex={-1}
+                  onClick={() => setShowSpecialChars(showSpecialChars === 'lower' ? false : 'lower')}
+                  className="absolute left-4 top-1/2 -translate-y-1/2 w-8 h-8 bg-slate-100 hover:bg-blue-100 rounded-lg flex items-center justify-center text-sm text-slate-500 active:scale-95 transition-all cursor-pointer"
+                  title="Special characters"
+                >
+                  #
+                </button>
+                {showSpecialChars === 'lower' && (
+                  <div className="absolute left-0 top-full mt-2 bg-white border border-slate-200 rounded-2xl shadow-lg p-2 flex gap-2 z-20">
+                    {specialChars.map((char) => (
+                      <button
+                        key={char}
+                        type="button"
+                        onClick={() => {
+                          const current = getValues('lowerAnswer') || '';
+                          const pos = lowerCursorRef.current;
+                          const newValue = current.slice(0, pos) + char + current.slice(pos);
+                          setValue('lowerAnswer', newValue);
+                          setShowSpecialChars(false);
+                          setTimeout(() => {
+                            if (lowerInputRef.current) {
+                              lowerInputRef.current.focus();
+                              const newPos = pos + char.length;
+                              lowerInputRef.current.setSelectionRange(newPos, newPos);
+                              lowerCursorRef.current = newPos;
+                            }
+                          }, 0);
+                        }}
+                        className="w-10 h-10 bg-slate-50 hover:bg-blue-100 rounded-xl flex items-center justify-center text-lg font-bold text-slate-700 active:scale-95 transition-all cursor-pointer"
+                      >
+                        {char}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
-          )}
-        </div>
+          </>
+        ) : (
+          <div className="relative w-full">
+            <input
+              {...registerRest}
+              ref={(e) => {
+                formRef(e);
+                inputRef.current = e;
+              }}
+              type="text"
+              placeholder="Example: l"
+              className="w-full p-6 pl-14 text-2xl font-black text-center text-slate-950 uppercase bg-white rounded-3xl shadow-lg shadow-slate-200 border-4 border-white focus:border-blue-300 focus:ring-0 focus:outline-none placeholder:text-slate-200 transition-all"
+              disabled={feedback.type === 'success'}
+              autoComplete="off"
+              autoCorrect="off"
+              autoCapitalize="characters"
+              onSelect={(e) => {
+                cursorPosRef.current = (e.target as HTMLInputElement).selectionStart || 0;
+              }}
+            />
+            <button
+              type="button"
+              tabIndex={-1}
+              onClick={() => setShowSpecialChars(showSpecialChars === 'answer' ? false : 'answer')
+              }
+              className="absolute left-4 top-1/2 -translate-y-1/2 w-8 h-8 bg-slate-100 hover:bg-blue-100 rounded-lg flex items-center justify-center text-sm text-slate-500 active:scale-95 transition-all cursor-pointer"
+              title="Special characters"
+            >
+              #
+            </button>
+            {showSpecialChars === 'answer' && (
+              <div className="absolute left-0 top-full mt-2 bg-white border border-slate-200 rounded-2xl shadow-lg p-2 flex gap-2 z-20">
+                {specialChars.map((char) => (
+                  <button
+                    key={char}
+                    type="button"
+                    onClick={() => {
+                      const current = getValues('answer') || '';
+                      const pos = cursorPosRef.current;
+                      const newValue = current.slice(0, pos) + char + current.slice(pos);
+                      setValue('answer', newValue);
+                      setShowSpecialChars(false);
+                      setTimeout(() => {
+                        if (inputRef.current) {
+                          inputRef.current.focus();
+                          const newPos = pos + char.length;
+                          inputRef.current.setSelectionRange(newPos, newPos);
+                          cursorPosRef.current = newPos;
+                        }
+                      }, 0);
+                    }}
+                    className="w-10 h-10 bg-slate-50 hover:bg-blue-100 rounded-xl flex items-center justify-center text-lg font-bold text-slate-700 active:scale-95 transition-all cursor-pointer"
+                  >
+                    {char}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Feedback Message */}
         <div className={`mt-2 min-h-[24px] font-bold text-center px-4 ${feedback.type === 'success' ? 'text-green-500' : 'text-orange-500'}`}>
