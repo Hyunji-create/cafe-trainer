@@ -1,10 +1,10 @@
 'use client';
 import { useState } from 'react';
-import Link from 'next/link'; // Added this import
+import { useUser } from '../lib/user-context';
 
 export default function CafeTrainer() {
-  const [name, setName] = useState('');
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const { name, isLoggedIn, sessionChecked, login, logout } = useUser();
+  const [inputName, setInputName] = useState('');
 
   const courses = [
     { id: 1, title: "Coffee Code + Test", icon: "☕", path: "/coffee-test" },
@@ -14,6 +14,15 @@ export default function CafeTrainer() {
     { id: 5, title: "Quiet Time Tasks", icon: "🧹", path: "#" },
     { id: 6, title: "General Final Test", icon: "🎓", path: "#" }
   ];
+
+  // Wait for session check before rendering
+  if (!sessionChecked) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-slate-50">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-600"></div>
+      </div>
+    );
+  }
 
   // Screen 1: Login
   if (!isLoggedIn) {
@@ -32,14 +41,15 @@ export default function CafeTrainer() {
             type="text" 
             placeholder="Your Full Name"
             className="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl mb-6 text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
-            onChange={(e) => setName(e.target.value)}
-            value={name}
+            onChange={(e) => setInputName(e.target.value)}
+            onInput={(e) => setInputName((e.target as HTMLInputElement).value)}
+            value={inputName}
           />
           
           <button 
-            onClick={() => name.length > 2 && setIsLoggedIn(true)}
-            disabled={name.length <= 2}
-            className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-slate-300 text-white p-4 rounded-xl font-bold shadow-lg shadow-blue-200 transition-all transform active:scale-95"
+            onClick={() => inputName.trim().length > 2 && login(inputName)}
+            disabled={inputName.trim().length <= 2}
+            className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-slate-300 text-white p-4 rounded-xl font-bold shadow-lg shadow-blue-200 transition-all transform active:scale-95 cursor-pointer"
           >
             Start Training
           </button>
@@ -58,8 +68,8 @@ export default function CafeTrainer() {
             <h2 className="text-2xl font-black text-slate-900">{name}</h2>
           </div>
           <button 
-            onClick={() => setIsLoggedIn(false)}
-            className="text-xs bg-slate-100 text-slate-500 px-3 py-1 rounded-full font-bold"
+            onClick={() => logout()}
+            className="text-xs bg-slate-100 text-slate-500 px-3 py-1 rounded-full font-bold cursor-pointer"
           >
             LOGOUT
           </button>
@@ -73,14 +83,13 @@ export default function CafeTrainer() {
   <button 
     key={course.id}
     onClick={() => {
-      console.log("Button clicked for ID:", course.id); // Check if this shows in console
       if (course.id === 1) {
-        window.location.assign('/coffee-test'); // Forces a fresh page load
+        window.location.assign('/coffee-test');
       } else {
         alert("Coming soon!");
       }
     }}
-    className="w-full bg-white p-6 rounded-3xl shadow-sm border border-slate-100 flex items-center justify-between active:scale-95 transition-all mb-4"
+    className="w-full bg-white p-6 rounded-3xl shadow-sm border border-slate-100 flex items-center justify-between active:scale-95 transition-all mb-4 cursor-pointer"
   >
     <div className="flex items-center gap-4 text-left">
       <div className="w-12 h-12 bg-blue-50 rounded-2xl flex items-center justify-center text-2xl">
