@@ -147,7 +147,7 @@ export default function TypingCoffeeTrainer() {
         const targetLower = normalize(item.lower_code);
 
         if (upperInput === targetUpper && lowerInput === targetLower) {
-          setFeedback({message: `✅ Correct split!`, type: 'success'});
+          setFeedback({message: `✅ Correct!`, type: 'success'});
           setTimeout(handleNext, 1200);
         } else {
           setFeedback({message: `❌ Incorrect. The targets code was "${item.upper_code}/${item.lower_code}".`, type: 'error'});
