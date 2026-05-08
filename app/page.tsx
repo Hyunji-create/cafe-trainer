@@ -1,8 +1,10 @@
 'use client';
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { useUser } from '../lib/user-context';
 
 export default function CafeTrainer() {
+  const router = useRouter();
   const { name, isLoggedIn, sessionChecked, login, logout } = useUser();
   const [inputName, setInputName] = useState('');
 
@@ -84,7 +86,7 @@ export default function CafeTrainer() {
     key={course.id}
     onClick={() => {
       if (course.id === 1) {
-        window.location.assign('/coffee-test');
+        router.push('/coffee-test');
       } else {
         alert("Coming soon!");
       }
