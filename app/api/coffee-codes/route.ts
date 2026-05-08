@@ -40,5 +40,5 @@ export async function GET(request: NextRequest) {
     [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
   }
 
-  return Response.json({ data: shuffled.slice(0, 1), maxLevel });
+  return Response.json({ data: shuffled, maxLevel });
 }
