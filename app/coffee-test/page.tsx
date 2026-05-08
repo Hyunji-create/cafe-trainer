@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useForm } from 'react-hook-form'; // Cleaner form handling
 import { useRouter } from 'next/navigation';
+import { useUser } from '../../lib/user-context';
 
 // Definition for the table data structure
 type CoffeeCodeItem = {
@@ -13,7 +14,6 @@ type CoffeeCodeItem = {
   is_split: boolean;
   upper_code: string | null;
   lower_code: string | null;
-  quiz_type: string | null;
 };
 
 type FormValues = {
@@ -22,6 +22,7 @@ type FormValues = {
 
 export default function TypingCoffeeTrainer() {
   const router = useRouter();
+  const { name: userName } = useUser();
   const { register, handleSubmit, reset, setFocus, setValue, getValues } = useForm<FormValues>();
   const [showSpecialChars, setShowSpecialChars] = useState(false);
   const specialChars = ['Ⓢ', '¡', '↓', '↑'];
@@ -37,13 +38,18 @@ export default function TypingCoffeeTrainer() {
   const [loading, setLoading] = useState(true);
   const [isProcessing, setIsProcessing] = useState(false);
   const [maxLevel, setMaxLevel] = useState(1);
+  const [quizLimit, setQuizLimit] = useState<string>('');
   const [feedback, setFeedback] = useState<{message: string; type: 'success' | 'error' | 'neutral'}>({message: "", type: "neutral"});
   
   // 1. Fetch Data from API Route
-  const loadCodes = async (level: number = currentLevel) => {
+  const loadCodes = async (level: number = currentLevel, limit?: string) => {
     setLoading(true);
     try {
-      const res = await fetch(`/api/coffee-codes?level=${level}`);
+      const limitParam = limit ?? quizLimit;
+      const url = limitParam
+        ? `/api/coffee-codes?level=${level}&limit=${limitParam}`
+        : `/api/coffee-codes?level=${level}`;
+      const res = await fetch(url);
       
       if (!res.ok) {
         const errorData = await res.json();
@@ -129,13 +135,13 @@ export default function TypingCoffeeTrainer() {
         }
       } else {
         // Standard single code check
-        const target = normalize(item.quiz_type === 'code_to_name' ? item.name : item.code);
+        const target = normalize(item.code);
         console.log(cleanInput, target);
         if (cleanInput === target || cleanInput.includes(target)) {
           setFeedback({message: "✅ Correct!", type: 'success'});
           setTimeout(handleNext, 1200);
         } else {
-          setFeedback({message: `❌ Incorrect. The target answer was "${item.quiz_type === 'code_to_name' ? item.name : item.code}".`, type: 'error'});
+          setFeedback({message: `❌ Incorrect. The target answer was "${item.code}".`, type: 'error'});
           setFocus('answer');
         }
       }
@@ -212,7 +218,7 @@ export default function TypingCoffeeTrainer() {
     <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-6 font-sans">
       {/* Top Header */}
       <header className="w-full max-w-sm flex justify-between items-center mb-6 fixed top-0 left-0 right-0 bg-slate-50 py-6 z-10 mx-auto">
-        <button onClick={() => router.back()} className="text-slate-400 text-2xl font-bold p-2 active:scale-95 cursor-pointer">
+        <button onClick={() => router.push('/')} className="text-slate-400 text-2xl font-bold p-2 active:scale-95 cursor-pointer">
           <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <path d="M19 12H5" /><path d="M12 19l-7-7 7-7" />
           </svg>
@@ -237,12 +243,12 @@ export default function TypingCoffeeTrainer() {
       <div className="w-full max-w-sm bg-white rounded-3xl p-6 shadow-sm border border-slate-100 mb-8 text-center">
         <p className="text-slate-400 text-[10px] font-black uppercase tracking-widest mb-1">Memorization Test</p>
         <h1 className="text-3xl font-black text-slate-900 mb-6">
-          {item.quiz_type === 'code_to_name' ? item.code : item.name}
+          {item.name}
         </h1>
         
         <div className="w-full h-16 bg-slate-100 rounded-full flex items-center justify-center">
             <p className="text-slate-500 text-sm font-medium">
-              {item.quiz_type === 'code_to_name' ? 'Type the name(s) below' : 'Type the code(s) below'}
+              Type the code(s) below
             </p>
         </div>
       </div>
@@ -339,6 +345,81 @@ export default function TypingCoffeeTrainer() {
                 {feedback.type === 'success' ? "Checked!" : isProcessing ? "Verifying..." : "Check Answer"}
             </button>
         </div>
+
+        {/* Admin Level Navigation */}
+        {userName.toLowerCase() === 'admin' && (
+          <div className="w-full max-w-sm pb-4 flex flex-col gap-3 bg-orange-50 border border-orange-200 rounded-2xl p-4">
+            <p className="text-[10px] font-black text-orange-400 uppercase tracking-widest">Admin Only</p>
+            <div className="grid grid-cols-2 gap-4">
+              <button
+                type="button"
+                onClick={() => {
+                  if (currentLevel > 1) {
+                    setCurrentIndex(0);
+                    reset();
+                    setFeedback({message: "", type: "neutral"});
+                    loadCodes(currentLevel - 1);
+                  }
+                }}
+                disabled={currentLevel <= 1}
+                className="p-3 bg-orange-100 text-orange-600 rounded-2xl font-bold text-sm active:scale-95 transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                ← Prev Level
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  if (currentLevel < maxLevel) {
+                    setCurrentIndex(0);
+                    reset();
+                    setFeedback({message: "", type: "neutral"});
+                    loadCodes(currentLevel + 1);
+                  }
+                }}
+                disabled={currentLevel >= maxLevel}
+                className="p-3 bg-orange-100 text-orange-600 rounded-2xl font-bold text-sm active:scale-95 transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                Next Level →
+              </button>
+            </div>
+            <div className="flex items-center gap-2">
+              <input
+                type="number"
+                min="1"
+                placeholder="All"
+                value={quizLimit}
+                onChange={(e) => setQuizLimit(e.target.value)}
+                className="w-20 p-2 text-sm text-center bg-white border border-slate-200 rounded-xl text-slate-700 focus:outline-none focus:ring-2 focus:ring-orange-300"
+              />
+              <span className="text-xs text-slate-400">quizzes per level</span>
+              <button
+                type="button"
+                onClick={() => {
+                  setCurrentIndex(0);
+                  reset();
+                  setFeedback({message: "", type: "neutral"});
+                  loadCodes(currentLevel, quizLimit);
+                }}
+                className="px-3 py-2 bg-orange-100 text-orange-600 rounded-xl font-bold text-xs active:scale-95 transition-all cursor-pointer"
+              >
+                Apply
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setQuizLimit('');
+                  setCurrentIndex(0);
+                  reset();
+                  setFeedback({message: "", type: "neutral"});
+                  loadCodes(currentLevel, '');
+                }}
+                className="px-3 py-2 bg-slate-100 text-slate-500 rounded-xl font-bold text-xs active:scale-95 transition-all cursor-pointer"
+              >
+                All
+              </button>
+            </div>
+          </div>
+        )}
       </form>
     </div>
   );
