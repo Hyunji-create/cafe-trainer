@@ -241,7 +241,7 @@ export default function TypingCoffeeTrainer() {
         </div>
       </header>
 
-      {(!item || coffeeLibrary.length === 0) ? (
+      {(!loading && (!item || coffeeLibrary.length === 0)) ? (
         <div className="bg-slate-50 flex flex-col items-center justify-center p-6 text-center">
           <p className="text-slate-500 mb-6">No quiz found.</p>
           <button onClick={() => router.push('/')} className="text-blue-600 font-bold underline">Go Back</button>
@@ -266,7 +266,7 @@ export default function TypingCoffeeTrainer() {
 
           {/* Input Form */}
           <form onSubmit={handleSubmit(onSubmit)} className="w-full max-w-sm flex flex-col gap-3">
-            {item.is_split ? (
+            {item?.is_split ? (
               <>
                 <div className="flex flex-col items-center gap-0">
                   <div className="relative w-full">
