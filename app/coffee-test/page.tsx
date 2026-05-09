@@ -27,7 +27,7 @@ export default function TypingCoffeeTrainer() {
   const { name: userName } = useUser();
   const { register, handleSubmit, reset, setFocus, setValue, getValues } = useForm<FormValues>();
   const [showSpecialChars, setShowSpecialChars] = useState<string | false>(false);
-  const specialChars = ['Ⓢ', '¡', '↓', '↑'];
+  const specialChars = ['Ⓢ', '/', '!', '¡', '↓', '↑'];
   const inputRef = useRef<HTMLInputElement | null>(null);
   const upperInputRef = useRef<HTMLInputElement | null>(null);
   const lowerInputRef = useRef<HTMLInputElement | null>(null);
@@ -78,13 +78,14 @@ export default function TypingCoffeeTrainer() {
   };
 
   useEffect(() => {
-    loadCodes(1);
-  }, []);
+    loadCodes(1); // eslint-disable-line
+  }, []); // eslint-disable-line
 
   // Ensure focus remains in the input field when the index changes
   useEffect(() => {
     if (!loading && coffeeLibrary.length > 0) {
-      setFocus('answer');
+      const currentItem = coffeeLibrary[currentIndex];
+      setFocus(currentItem?.is_split ? 'upperAnswer' : 'answer');
     }
   }, [currentIndex, loading, coffeeLibrary, setFocus]);
 
@@ -222,24 +223,11 @@ export default function TypingCoffeeTrainer() {
     </div>
   );
 
-  if (loading) return (
-    <div className="min-h-screen bg-slate-50 flex items-center justify-center">
-      <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-600"></div>
-    </div>
-  );
-
-  if (!item || coffeeLibrary.length === 0) return (
-    <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-6 text-center">
-      <p className="text-slate-500 mb-6">No codes found. Verify your 'coffee_codes' table has data and is in the 'public' schema.</p>
-      <button onClick={() => router.push('/')} className="text-blue-600 font-bold underline">Go Back</button>
-    </div>
-  );
-
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-6 pt-14 font-sans">
+    <div className="min-h-dvh bg-slate-50 flex flex-col items-center justify-center p-6 py-14 font-sans">
       {/* Top Header */}
       <header className="w-full flex justify-center items-center fixed top-0 left-0 right-0 bg-slate-50 py-2 z-10">
-        <div className="w-full max-w-sm flex items-center px-2 relative">
+        <div className="w-full flex items-center px-2 relative">
           <button onClick={() => router.push('/')} className="text-slate-400 text-2xl font-bold p-2 active:scale-95 cursor-pointer">
             <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <path d="M19 12H5" /><path d="M12 19l-7-7 7-7" />
@@ -253,70 +241,192 @@ export default function TypingCoffeeTrainer() {
         </div>
       </header>
 
-      {/* Level & Progress */}
-      <div className="w-full max-w-sm flex justify-between items-center mb-3">
-        <span className="text-[10px] font-black text-green-600 bg-green-100 px-3 py-1 rounded-full uppercase tracking-tighter">
-          Level {currentLevel} / {maxLevel}
-        </span>
-        <span className="text-slate-400 font-mono text-sm">{currentIndex + 1}/{coffeeLibrary.length}</span>
-      </div>
+      {(!item || coffeeLibrary.length === 0) ? (
+        <div className="bg-slate-50 flex flex-col items-center justify-center p-6 text-center">
+          <p className="text-slate-500 mb-6">No quiz found.</p>
+          <button onClick={() => router.push('/')} className="text-blue-600 font-bold underline">Go Back</button>
+        </div>
+      ): (
+        <>
+          {/* Level & Progress */}
+          <div className="w-full max-w-sm flex justify-between items-center mb-3">
+            <span className="text-[10px] font-black text-green-600 bg-green-100 px-3 py-1 rounded-full uppercase tracking-tighter">
+              Level {loading? "-" : currentLevel} / {loading? "-" : maxLevel}
+            </span>
+            <span className="text-slate-400 font-mono text-sm">{loading? "-" : currentIndex + 1}/{loading? "-" : coffeeLibrary.length}</span>
+          </div>
 
-      {/* Task Card */}
-      <div className="w-full max-w-sm bg-white rounded-2xl p-4 shadow-sm border border-slate-100 mb-6 text-center">
-        <p className="text-slate-400 text-[10px] font-black uppercase tracking-widest mb-1">Memorization Test</p>
-        <h1 className="text-2xl font-black text-slate-900">
-          {item.name}
-        </h1>
-      </div>
+          {/* Task Card */}
+          <div className="w-full max-w-sm bg-white rounded-2xl p-4 shadow-sm border border-slate-100 mb-6 text-center">
+            <p className="text-slate-400 text-[10px] font-black uppercase tracking-widest mb-1">Memorization Test</p>
+            <h1 className="text-2xl font-black text-slate-900">
+              {loading ? <div className="w-40 h-8 bg-slate-200 rounded-lg animate-pulse mx-auto"></div> : item.name}
+            </h1>
+          </div>
 
-      {/* Input Form */}
-      <form onSubmit={handleSubmit(onSubmit)} className="w-full max-w-sm flex flex-col gap-3">
-        {item.is_split ? (
-          <>
-            <div className="flex flex-col items-center gap-0">
+          {/* Input Form */}
+          <form onSubmit={handleSubmit(onSubmit)} className="w-full max-w-sm flex flex-col gap-3">
+            {item.is_split ? (
+              <>
+                <div className="flex flex-col items-center gap-0">
+                  <div className="relative w-full">
+                    <input
+                      {...upperRegisterRest}
+                      ref={(e) => {
+                        upperFormRef(e);
+                        upperInputRef.current = e;
+                      }}
+                      type="text"
+                      placeholder="Type the code here"
+                      className="w-full p-4 pl-14 text-xl font-black text-center text-slate-950 uppercase bg-white rounded-t-2xl shadow-sm border-4 border-white focus:border-blue-300 focus:ring-0 focus:outline-none placeholder:text-slate-200 transition-all"
+                      disabled={feedback.type === 'success'}
+                      autoComplete="off"
+                      autoCorrect="off"
+                      autoCapitalize="characters"
+                      onSelect={(e) => { upperCursorRef.current = (e.target as HTMLInputElement).selectionStart || 0; }}
+                    />
+                    <button
+                      type="button"
+                      tabIndex={-1}
+                      onClick={() => setShowSpecialChars(showSpecialChars === 'upper' ? false : 'upper')}
+                      className="absolute left-4 top-1/2 -translate-y-1/2 w-8 h-8 bg-slate-100 hover:bg-blue-100 rounded-lg flex items-center justify-center text-sm text-slate-500 active:scale-95 transition-all cursor-pointer"
+                      title="Special characters"
+                    >
+                      #
+                    </button>
+                    {showSpecialChars === 'upper' && (
+                      <div className="absolute left-0 top-full mt-2 bg-white border border-slate-200 rounded-2xl shadow-lg p-2 flex gap-2 z-20">
+                        {specialChars.map((char) => (
+                          <button
+                            key={char}
+                            type="button"
+                            onClick={() => {
+                              const current = getValues('upperAnswer') || '';
+                              const pos = upperCursorRef.current;
+                              const newValue = current.slice(0, pos) + char + current.slice(pos);
+                              setValue('upperAnswer', newValue);
+                              setShowSpecialChars(false);
+                              setTimeout(() => {
+                                if (upperInputRef.current) {
+                                  upperInputRef.current.focus();
+                                  const newPos = pos + char.length;
+                                  upperInputRef.current.setSelectionRange(newPos, newPos);
+                                  upperCursorRef.current = newPos;
+                                }
+                              }, 0);
+                            }}
+                            className="w-10 h-10 bg-slate-50 hover:bg-blue-100 rounded-xl flex items-center justify-center text-lg font-bold text-slate-700 active:scale-95 transition-all cursor-pointer"
+                          >
+                            {char}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                  <div className="w-full h-[2px] bg-slate-900"></div>
+                  <div className="relative w-full">
+                    <input
+                      {...lowerRegisterRest}
+                      ref={(e) => {
+                        lowerFormRef(e);
+                        lowerInputRef.current = e;
+                      }}
+                      type="text"
+                      placeholder="Type the code here"
+                      className="w-full p-4 pl-14 text-xl font-black text-center text-slate-950 uppercase bg-white rounded-b-2xl shadow-lg shadow-slate-200 border-4 border-white focus:border-blue-300 focus:ring-0 focus:outline-none placeholder:text-slate-200 transition-all"
+                      disabled={feedback.type === 'success'}
+                      autoComplete="off"
+                      autoCorrect="off"
+                      autoCapitalize="characters"
+                      onSelect={(e) => { lowerCursorRef.current = (e.target as HTMLInputElement).selectionStart || 0; }}
+                    />
+                    <button
+                      type="button"
+                      tabIndex={-1}
+                      onClick={() => setShowSpecialChars(showSpecialChars === 'lower' ? false : 'lower')}
+                      className="absolute left-4 top-1/2 -translate-y-1/2 w-8 h-8 bg-slate-100 hover:bg-blue-100 rounded-lg flex items-center justify-center text-sm text-slate-500 active:scale-95 transition-all cursor-pointer"
+                      title="Special characters"
+                    >
+                      #
+                    </button>
+                    {showSpecialChars === 'lower' && (
+                      <div className="absolute left-0 top-full mt-2 bg-white border border-slate-200 rounded-2xl shadow-lg p-2 flex gap-2 z-20">
+                        {specialChars.map((char) => (
+                          <button
+                            key={char}
+                            type="button"
+                            onClick={() => {
+                              const current = getValues('lowerAnswer') || '';
+                              const pos = lowerCursorRef.current;
+                              const newValue = current.slice(0, pos) + char + current.slice(pos);
+                              setValue('lowerAnswer', newValue);
+                              setShowSpecialChars(false);
+                              setTimeout(() => {
+                                if (lowerInputRef.current) {
+                                  lowerInputRef.current.focus();
+                                  const newPos = pos + char.length;
+                                  lowerInputRef.current.setSelectionRange(newPos, newPos);
+                                  lowerCursorRef.current = newPos;
+                                }
+                              }, 0);
+                            }}
+                            className="w-10 h-10 bg-slate-50 hover:bg-blue-100 rounded-xl flex items-center justify-center text-lg font-bold text-slate-700 active:scale-95 transition-all cursor-pointer"
+                          >
+                            {char}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </>
+            ) : (
               <div className="relative w-full">
                 <input
-                  {...upperRegisterRest}
+                  {...registerRest}
                   ref={(e) => {
-                    upperFormRef(e);
-                    upperInputRef.current = e;
+                    formRef(e);
+                    inputRef.current = e;
                   }}
                   type="text"
                   placeholder="Type the code here"
-                  className="w-full p-4 pl-14 text-xl font-black text-center text-slate-950 uppercase bg-white rounded-t-2xl shadow-sm border-4 border-white focus:border-blue-300 focus:ring-0 focus:outline-none placeholder:text-slate-200 transition-all"
+                  className="w-full p-4 pl-11 text-xl font-black text-center text-slate-950 uppercase bg-white rounded-2xl shadow-lg shadow-slate-200 border-4 border-white focus:border-blue-300 focus:ring-0 focus:outline-none placeholder:text-slate-200 transition-all"
                   disabled={feedback.type === 'success'}
                   autoComplete="off"
                   autoCorrect="off"
                   autoCapitalize="characters"
-                  onSelect={(e) => { upperCursorRef.current = (e.target as HTMLInputElement).selectionStart || 0; }}
+                  onSelect={(e) => {
+                    cursorPosRef.current = (e.target as HTMLInputElement).selectionStart || 0;
+                  }}
                 />
                 <button
                   type="button"
                   tabIndex={-1}
-                  onClick={() => setShowSpecialChars(showSpecialChars === 'upper' ? false : 'upper')}
+                  onClick={() => setShowSpecialChars(showSpecialChars === 'answer' ? false : 'answer')
+                  }
                   className="absolute left-4 top-1/2 -translate-y-1/2 w-8 h-8 bg-slate-100 hover:bg-blue-100 rounded-lg flex items-center justify-center text-sm text-slate-500 active:scale-95 transition-all cursor-pointer"
                   title="Special characters"
                 >
                   #
                 </button>
-                {showSpecialChars === 'upper' && (
+                {showSpecialChars === 'answer' && (
                   <div className="absolute left-0 top-full mt-2 bg-white border border-slate-200 rounded-2xl shadow-lg p-2 flex gap-2 z-20">
                     {specialChars.map((char) => (
                       <button
                         key={char}
                         type="button"
                         onClick={() => {
-                          const current = getValues('upperAnswer') || '';
-                          const pos = upperCursorRef.current;
+                          const current = getValues('answer') || '';
+                          const pos = cursorPosRef.current;
                           const newValue = current.slice(0, pos) + char + current.slice(pos);
-                          setValue('upperAnswer', newValue);
+                          setValue('answer', newValue);
                           setShowSpecialChars(false);
                           setTimeout(() => {
-                            if (upperInputRef.current) {
-                              upperInputRef.current.focus();
+                            if (inputRef.current) {
+                              inputRef.current.focus();
                               const newPos = pos + char.length;
-                              upperInputRef.current.setSelectionRange(newPos, newPos);
-                              upperCursorRef.current = newPos;
+                              inputRef.current.setSelectionRange(newPos, newPos);
+                              cursorPosRef.current = newPos;
                             }
                           }, 0);
                         }}
@@ -327,153 +437,40 @@ export default function TypingCoffeeTrainer() {
                     ))}
                   </div>
                 )}
-              </div>
-              <div className="w-full h-[2px] bg-slate-900"></div>
-              <div className="relative w-full">
-                <input
-                  {...lowerRegisterRest}
-                  ref={(e) => {
-                    lowerFormRef(e);
-                    lowerInputRef.current = e;
-                  }}
-                  type="text"
-                  placeholder="Type the code here"
-                  className="w-full p-4 pl-14 text-xl font-black text-center text-slate-950 uppercase bg-white rounded-b-2xl shadow-lg shadow-slate-200 border-4 border-white focus:border-blue-300 focus:ring-0 focus:outline-none placeholder:text-slate-200 transition-all"
-                  disabled={feedback.type === 'success'}
-                  autoComplete="off"
-                  autoCorrect="off"
-                  autoCapitalize="characters"
-                  onSelect={(e) => { lowerCursorRef.current = (e.target as HTMLInputElement).selectionStart || 0; }}
-                />
-                <button
-                  type="button"
-                  tabIndex={-1}
-                  onClick={() => setShowSpecialChars(showSpecialChars === 'lower' ? false : 'lower')}
-                  className="absolute left-4 top-1/2 -translate-y-1/2 w-8 h-8 bg-slate-100 hover:bg-blue-100 rounded-lg flex items-center justify-center text-sm text-slate-500 active:scale-95 transition-all cursor-pointer"
-                  title="Special characters"
-                >
-                  #
-                </button>
-                {showSpecialChars === 'lower' && (
-                  <div className="absolute left-0 top-full mt-2 bg-white border border-slate-200 rounded-2xl shadow-lg p-2 flex gap-2 z-20">
-                    {specialChars.map((char) => (
-                      <button
-                        key={char}
-                        type="button"
-                        onClick={() => {
-                          const current = getValues('lowerAnswer') || '';
-                          const pos = lowerCursorRef.current;
-                          const newValue = current.slice(0, pos) + char + current.slice(pos);
-                          setValue('lowerAnswer', newValue);
-                          setShowSpecialChars(false);
-                          setTimeout(() => {
-                            if (lowerInputRef.current) {
-                              lowerInputRef.current.focus();
-                              const newPos = pos + char.length;
-                              lowerInputRef.current.setSelectionRange(newPos, newPos);
-                              lowerCursorRef.current = newPos;
-                            }
-                          }, 0);
-                        }}
-                        className="w-10 h-10 bg-slate-50 hover:bg-blue-100 rounded-xl flex items-center justify-center text-lg font-bold text-slate-700 active:scale-95 transition-all cursor-pointer"
-                      >
-                        {char}
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </div>
-          </>
-        ) : (
-          <div className="relative w-full">
-            <input
-              {...registerRest}
-              ref={(e) => {
-                formRef(e);
-                inputRef.current = e;
-              }}
-              type="text"
-              placeholder="Type the code here"
-              className="w-full p-4 pl-11 text-xl font-black text-center text-slate-950 uppercase bg-white rounded-2xl shadow-lg shadow-slate-200 border-4 border-white focus:border-blue-300 focus:ring-0 focus:outline-none placeholder:text-slate-200 transition-all"
-              disabled={feedback.type === 'success'}
-              autoComplete="off"
-              autoCorrect="off"
-              autoCapitalize="characters"
-              onSelect={(e) => {
-                cursorPosRef.current = (e.target as HTMLInputElement).selectionStart || 0;
-              }}
-            />
-            <button
-              type="button"
-              tabIndex={-1}
-              onClick={() => setShowSpecialChars(showSpecialChars === 'answer' ? false : 'answer')
-              }
-              className="absolute left-4 top-1/2 -translate-y-1/2 w-8 h-8 bg-slate-100 hover:bg-blue-100 rounded-lg flex items-center justify-center text-sm text-slate-500 active:scale-95 transition-all cursor-pointer"
-              title="Special characters"
-            >
-              #
-            </button>
-            {showSpecialChars === 'answer' && (
-              <div className="absolute left-0 top-full mt-2 bg-white border border-slate-200 rounded-2xl shadow-lg p-2 flex gap-2 z-20">
-                {specialChars.map((char) => (
-                  <button
-                    key={char}
-                    type="button"
-                    onClick={() => {
-                      const current = getValues('answer') || '';
-                      const pos = cursorPosRef.current;
-                      const newValue = current.slice(0, pos) + char + current.slice(pos);
-                      setValue('answer', newValue);
-                      setShowSpecialChars(false);
-                      setTimeout(() => {
-                        if (inputRef.current) {
-                          inputRef.current.focus();
-                          const newPos = pos + char.length;
-                          inputRef.current.setSelectionRange(newPos, newPos);
-                          cursorPosRef.current = newPos;
-                        }
-                      }, 0);
-                    }}
-                    className="w-10 h-10 bg-slate-50 hover:bg-blue-100 rounded-xl flex items-center justify-center text-lg font-bold text-slate-700 active:scale-95 transition-all cursor-pointer"
-                  >
-                    {char}
-                  </button>
-                ))}
               </div>
             )}
-          </div>
-        )}
 
-        {/* Feedback Message */}
-        <div className={`min-h-[20px] font-bold text-center text-sm ${feedback.type === 'success' ? 'text-green-500' : 'text-orange-500'}`}>
-          {feedback.message}
-        </div>
+            {/* Feedback Message */}
+            <div className={`min-h-[20px] font-bold text-center text-sm ${feedback.type === 'success' ? 'text-green-500' : 'text-orange-500'}`}>
+              {feedback.message}
+            </div>
 
-        {/* Footer Buttons */}
-        <div className="grid grid-cols-2 gap-4 w-full max-w-sm mt-auto pb-8">
-            <button 
-                type="button" // Important: Stop form submission
-                onClick={() => reset()}
-                disabled={isProcessing}
-                className="p-3 bg-white text-slate-400 rounded-2xl font-bold border-2 border-slate-100 active:scale-95 transition-all cursor-pointer"
-            >
-                Clear
-            </button>
-            <button 
-                type="submit"
-                disabled={isProcessing || feedback.type === 'success'}
-                className={`${
-                feedback.type === 'success' ? 'bg-green-500' : 
-                isProcessing ? 'bg-slate-300' : 'bg-blue-600'
-                } p-3 text-white rounded-2xl font-black shadow-xl shadow-blue-200 active:scale-95 transition-all cursor-pointer`}
-            >
-                {feedback.type === 'success' ? "Checked!" : isProcessing ? "Verifying..." : "Submit"}
-            </button>
-        </div>
+            {/* Footer Buttons */}
+            <div className="grid grid-cols-2 gap-4 w-full max-w-sm mt-auto pb-8">
+                <button 
+                    type="button" // Important: Stop form submission
+                    onClick={() => reset()}
+                    disabled={loading || isProcessing}
+                    className="p-3 bg-white text-slate-400 rounded-2xl font-bold border-2 border-slate-100 active:scale-95 transition-all cursor-pointer"
+                >
+                    Clear
+                </button>
+                <button 
+                    type="submit"
+                    disabled={loading || isProcessing || feedback.type === 'success'}
+                    className={`${
+                    feedback.type === 'success' ? 'bg-green-500' : 
+                    isProcessing ? 'bg-slate-300' : 'bg-blue-600'
+                    } p-3 text-white rounded-2xl font-black shadow-xl shadow-blue-200 active:scale-95 transition-all cursor-pointer`}
+                >
+                    {feedback.type === 'success' ? "Checked!" : isProcessing ? "Verifying..." : "Submit"}
+                </button>
+            </div>
 
-        {/* Admin section removed from flow - now floating */}
-      </form>
+            {/* Admin section removed from flow - now floating */}
+          </form>
+       </>
+      )}
 
       {/* Floating Admin Button & Panel */}
       {userName.toLowerCase() === 'admin' && (
@@ -488,7 +485,7 @@ export default function TypingCoffeeTrainer() {
             </svg>
           </button>
           {showAdminPanel && (
-            <div className="fixed bottom-24 left-6 right-6 max-w-sm mx-auto bg-orange-50 border border-orange-200 rounded-2xl p-4 shadow-2xl z-30 flex flex-col gap-3">
+            <div className="fixed bottom-20 left-4 right-4 sm:left-auto sm:right-4 sm:w-80 z-30 bg-orange-50 border border-orange-200 rounded-2xl p-4 shadow-2xl flex flex-col gap-3">
               <p className="text-[10px] font-black text-orange-400 uppercase tracking-widest">Admin Only</p>
               <div className="grid grid-cols-2 gap-3">
                 <button
