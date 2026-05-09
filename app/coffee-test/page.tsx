@@ -254,7 +254,7 @@ export default function TypingCoffeeTrainer() {
       </header>
 
       {/* Level & Progress */}
-      <div className="w-full max-w-sm flex justify-between items-center mb-2">
+      <div className="w-full max-w-sm flex justify-between items-center mb-3">
         <span className="text-[10px] font-black text-green-600 bg-green-100 px-3 py-1 rounded-full uppercase tracking-tighter">
           Level {currentLevel} / {maxLevel}
         </span>
@@ -262,21 +262,15 @@ export default function TypingCoffeeTrainer() {
       </div>
 
       {/* Task Card */}
-      <div className="w-full max-w-sm bg-white rounded-3xl p-6 shadow-sm border border-slate-100 mb-8 text-center">
+      <div className="w-full max-w-sm bg-white rounded-2xl p-4 shadow-sm border border-slate-100 mb-6 text-center">
         <p className="text-slate-400 text-[10px] font-black uppercase tracking-widest mb-1">Memorization Test</p>
-        <h1 className="text-3xl font-black text-slate-900 mb-6">
+        <h1 className="text-2xl font-black text-slate-900">
           {item.name}
         </h1>
-        
-        <div className="w-full h-16 bg-slate-100 rounded-full flex items-center justify-center">
-            <p className="text-slate-500 text-sm font-medium">
-              Type the code(s) below
-            </p>
-        </div>
       </div>
 
       {/* Input Form */}
-      <form onSubmit={handleSubmit(onSubmit)} className="w-full max-w-sm flex flex-col gap-4">
+      <form onSubmit={handleSubmit(onSubmit)} className="w-full max-w-sm flex flex-col gap-3">
         {item.is_split ? (
           <>
             <div className="flex flex-col items-center gap-0">
@@ -288,8 +282,8 @@ export default function TypingCoffeeTrainer() {
                     upperInputRef.current = e;
                   }}
                   type="text"
-                  placeholder="Example: l"
-                  className="w-full p-5 pl-14 text-2xl font-black text-center text-slate-950 uppercase bg-white rounded-t-3xl shadow-sm border-4 border-white focus:border-blue-300 focus:ring-0 focus:outline-none placeholder:text-slate-200 transition-all"
+                  placeholder="Type the code here"
+                  className="w-full p-4 pl-14 text-xl font-black text-center text-slate-950 uppercase bg-white rounded-t-2xl shadow-sm border-4 border-white focus:border-blue-300 focus:ring-0 focus:outline-none placeholder:text-slate-200 transition-all"
                   disabled={feedback.type === 'success'}
                   autoComplete="off"
                   autoCorrect="off"
@@ -343,8 +337,8 @@ export default function TypingCoffeeTrainer() {
                     lowerInputRef.current = e;
                   }}
                   type="text"
-                  placeholder="Example: l"
-                  className="w-full p-5 pl-14 text-2xl font-black text-center text-slate-950 uppercase bg-white rounded-b-3xl shadow-lg shadow-slate-200 border-4 border-white focus:border-blue-300 focus:ring-0 focus:outline-none placeholder:text-slate-200 transition-all"
+                  placeholder="Type the code here"
+                  className="w-full p-4 pl-14 text-xl font-black text-center text-slate-950 uppercase bg-white rounded-b-2xl shadow-lg shadow-slate-200 border-4 border-white focus:border-blue-300 focus:ring-0 focus:outline-none placeholder:text-slate-200 transition-all"
                   disabled={feedback.type === 'success'}
                   autoComplete="off"
                   autoCorrect="off"
@@ -400,8 +394,8 @@ export default function TypingCoffeeTrainer() {
                 inputRef.current = e;
               }}
               type="text"
-              placeholder="Example: l"
-              className="w-full p-6 pl-14 text-2xl font-black text-center text-slate-950 uppercase bg-white rounded-3xl shadow-lg shadow-slate-200 border-4 border-white focus:border-blue-300 focus:ring-0 focus:outline-none placeholder:text-slate-200 transition-all"
+              placeholder="Type the code here"
+              className="w-full p-4 pl-11 text-xl font-black text-center text-slate-950 uppercase bg-white rounded-2xl shadow-lg shadow-slate-200 border-4 border-white focus:border-blue-300 focus:ring-0 focus:outline-none placeholder:text-slate-200 transition-all"
               disabled={feedback.type === 'success'}
               autoComplete="off"
               autoCorrect="off"
@@ -452,7 +446,7 @@ export default function TypingCoffeeTrainer() {
         )}
 
         {/* Feedback Message */}
-        <div className={`min-h-[24px] font-bold text-center ${feedback.type === 'success' ? 'text-green-500' : 'text-orange-500'}`}>
+        <div className={`min-h-[20px] font-bold text-center text-sm ${feedback.type === 'success' ? 'text-green-500' : 'text-orange-500'}`}>
           {feedback.message}
         </div>
 
@@ -462,7 +456,7 @@ export default function TypingCoffeeTrainer() {
                 type="button" // Important: Stop form submission
                 onClick={() => reset()}
                 disabled={isProcessing}
-                className="p-5 bg-white text-slate-400 rounded-3xl font-bold border-2 border-slate-100 active:scale-95 transition-all cursor-pointer"
+                className="p-3 bg-white text-slate-400 rounded-2xl font-bold border-2 border-slate-100 active:scale-95 transition-all cursor-pointer"
             >
                 Clear
             </button>
@@ -472,9 +466,9 @@ export default function TypingCoffeeTrainer() {
                 className={`${
                 feedback.type === 'success' ? 'bg-green-500' : 
                 isProcessing ? 'bg-slate-300' : 'bg-blue-600'
-                } p-5 text-white rounded-3xl font-black shadow-xl shadow-blue-200 active:scale-95 transition-all cursor-pointer`}
+                } p-3 text-white rounded-2xl font-black shadow-xl shadow-blue-200 active:scale-95 transition-all cursor-pointer`}
             >
-                {feedback.type === 'success' ? "Checked!" : isProcessing ? "Verifying..." : "Check Answer"}
+                {feedback.type === 'success' ? "Checked!" : isProcessing ? "Verifying..." : "Submit"}
             </button>
         </div>
 
