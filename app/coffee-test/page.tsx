@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import QuizAnswerInput, { QuizAnswerInputHandle } from '../../components/QuizAnswerInput';
 import Confetti from '../../components/Confetti';
 import AdminPanel from '../../components/AdminPanel';
+import ModuleWrapper from '../../components/ModuleWrapper';
 
 // Definition for the table data structure
 type CoffeeCodeItem = {
@@ -18,6 +19,8 @@ type CoffeeCodeItem = {
 };
 
 const SPECIAL_CHARS = ['Ⓢ', '/', '!', '¡', '↓', '↑'];
+const MODULE_TITLE = 'Coffee Code + Test';
+const MODULE_ICON = '☕';
 
 export default function TypingCoffeeTrainer() {
   const router = useRouter();
@@ -28,7 +31,15 @@ export default function TypingCoffeeTrainer() {
   // State Management
   const [coffeeLibrary, setCoffeeLibrary] = useState<CoffeeCodeItem[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
+  const [savedLevel] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const saved = sessionStorage.getItem('coffeeTestLevel');
+      return saved ? parseInt(saved, 10) : 1;
+    }
+    return 1;
+  });
   const [currentLevel, setCurrentLevel] = useState(1);
+  const [showResumePrompt, setShowResumePrompt] = useState(savedLevel > 1 && savedLevel !== -1);
   const [loading, setLoading] = useState(true);
   const [isProcessing, setIsProcessing] = useState(false);
   const [maxLevel, setMaxLevel] = useState(1);
@@ -54,6 +65,7 @@ export default function TypingCoffeeTrainer() {
         setCoffeeLibrary(data as CoffeeCodeItem[]);
         setMaxLevel(max);
         setCurrentLevel(level);
+        sessionStorage.setItem('coffeeTestLevel', String(level));
       }
     } catch (err) {
       console.error("Connection Error:", err);
@@ -64,7 +76,11 @@ export default function TypingCoffeeTrainer() {
   };
 
   useEffect(() => {
-    loadCodes(1); // eslint-disable-line
+    if (!showResumePrompt) {
+      loadCodes(1); // eslint-disable-line
+    } else {
+      setLoading(false);
+    }
   }, []); // eslint-disable-line
 
   // Ensure focus remains in the input field when the index changes
@@ -93,6 +109,9 @@ export default function TypingCoffeeTrainer() {
       setCurrentIndex(prev => prev + 1);
     } else {
       setIsComplete(true);
+      if (currentLevel >= maxLevel) {
+        sessionStorage.setItem('coffeeTestLevel', '-1');
+      }
     }
   };
 
@@ -157,10 +176,43 @@ export default function TypingCoffeeTrainer() {
     setIsProcessing(false);
   };
 
+  if (showResumePrompt) return (
+    <ModuleWrapper title={MODULE_TITLE} icon={MODULE_ICON}>
+      <div className="w-full max-w-sm bg-white rounded-3xl p-8 shadow-xl border border-slate-100 text-center">
+        <div className="inline-block p-4 bg-blue-50 rounded-2xl mb-4">
+          <span className="text-4xl">📋</span>
+        </div>
+        <h1 className="text-xl font-black text-slate-900 mb-2">Welcome Back!</h1>
+        <p className="text-slate-500 mb-6">You were on Level {savedLevel} last time.</p>
+        <div className="flex flex-col gap-3">
+          <button
+            onClick={() => {
+              setShowResumePrompt(false);
+              loadCodes(savedLevel);
+            }}
+            className="w-full bg-blue-600 hover:bg-blue-700 text-white p-4 rounded-xl font-bold shadow-lg shadow-blue-200 transition-all active:scale-95 cursor-pointer"
+          >
+            Resume Level {savedLevel}
+          </button>
+          <button
+            onClick={() => {
+              setShowResumePrompt(false);
+              sessionStorage.setItem('coffeeTestLevel', '1');
+              loadCodes(1);
+            }}
+            className="w-full bg-slate-100 hover:bg-slate-200 text-slate-600 p-4 rounded-xl font-bold transition-all active:scale-95 cursor-pointer"
+          >
+            Start from Level 1
+          </button>
+        </div>
+      </div>
+    </ModuleWrapper>
+  );
+
   if (isComplete) return (
-    <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-6 text-center">
+    <ModuleWrapper title={MODULE_TITLE} icon={MODULE_ICON}>
       {currentLevel >= maxLevel && <Confetti />}
-      <div className="w-full max-w-sm bg-white rounded-3xl p-8 shadow-xl border border-slate-100">
+      <div className="w-full max-w-sm bg-white rounded-3xl p-8 shadow-xl border border-slate-100 text-center">
         <div className="inline-block p-4 bg-green-50 rounded-2xl mb-4">
           <span className="text-5xl">{currentLevel >= maxLevel ? '🏆' : '🎉'}</span>
         </div>
@@ -215,26 +267,11 @@ export default function TypingCoffeeTrainer() {
           </button>
         </div>
       </div>
-    </div>
+    </ModuleWrapper>
   );
 
   return (
-    <div className="min-h-dvh bg-slate-50 flex flex-col items-center justify-center p-6 py-14 font-sans">
-      {/* Top Header */}
-      <header className="w-full flex justify-center items-center fixed top-0 left-0 right-0 bg-slate-50 py-2 z-10">
-        <div className="w-full flex items-center px-2 relative">
-          <button onClick={() => router.push('/')} className="text-slate-400 text-2xl font-bold p-2 active:scale-95 cursor-pointer">
-            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M19 12H5" /><path d="M12 19l-7-7 7-7" />
-            </svg>
-          </button>
-          <div className="absolute left-1/2 -translate-x-1/2 flex items-center gap-1">
-            <span className="text-lg">☕</span>
-            <span className="text-sm font-bold text-slate-800">Coffee Code + Test</span>
-          </div>
-        </div>
-      </header>
-
+    <ModuleWrapper title={MODULE_TITLE} icon={MODULE_ICON}>
       {(!loading && (!item || coffeeLibrary.length === 0)) ? (
         <div className="bg-slate-50 flex flex-col items-center justify-center p-6 text-center">
           <p className="text-slate-500 mb-6">No quiz found.</p>
@@ -334,7 +371,7 @@ export default function TypingCoffeeTrainer() {
               }
             }}
             disabled={currentLevel <= 1}
-            className="p-3 bg-orange-100 text-orange-600 rounded-2xl font-bold text-sm active:scale-95 transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+            className="p-3 bg-orange-100 text-orange-600 rounded-xl font-bold text-sm active:scale-95 transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
           >
             ← Prev Level
           </button>
@@ -349,23 +386,25 @@ export default function TypingCoffeeTrainer() {
               }
             }}
             disabled={currentLevel >= maxLevel}
-            className="p-3 bg-orange-100 text-orange-600 rounded-2xl font-bold text-sm active:scale-95 transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+            className="p-3 bg-orange-100 text-orange-600 rounded-xl font-bold text-sm active:scale-95 transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
           >
             Next Level →
           </button>
         </div>
         <div className="flex items-center justify-between w-full gap-2">
-          <input
-            type="text"
-            inputMode="numeric"
-            pattern="[0-9]*"
-            min="1"
-            placeholder="All"
-            value={quizLimit}
-            onChange={(e) => setQuizLimit(e.target.value)}
-            className="w-16 p-2 text-sm text-center bg-white border border-slate-200 rounded-xl text-slate-700 focus:outline-none focus:ring-2 focus:ring-orange-300"
-          />
-          <span className="text-xs text-slate-400">quiz(zes) per level</span>
+          <div className="flex items-center gap-2">
+            <input
+              type="text"
+              inputMode="numeric"
+              pattern="[0-9]*"
+              min="1"
+              placeholder="All"
+              value={quizLimit}
+              onChange={(e) => setQuizLimit(e.target.value)}
+              className="w-16 p-2 text-sm text-center bg-white border border-slate-200 rounded-lg text-slate-700 focus:outline-none focus:ring-2 focus:ring-orange-300"
+            />
+            <span className="text-xs text-slate-400">quiz(zes) per level</span>
+          </div>
           <button
             type="button"
             onClick={() => {
@@ -374,7 +413,7 @@ export default function TypingCoffeeTrainer() {
               setFeedback({message: "", type: "neutral"});
               loadCodes(currentLevel, quizLimit);
             }}
-            className="px-3 py-2 bg-orange-100 text-orange-600 rounded-xl font-bold text-xs active:scale-95 transition-all cursor-pointer"
+            className="px-3 py-2 bg-orange-100 text-orange-600 rounded-lg font-bold text-xs active:scale-95 transition-all cursor-pointer"
           >
             Apply
           </button>
@@ -387,12 +426,12 @@ export default function TypingCoffeeTrainer() {
               setFeedback({message: "", type: "neutral"});
               loadCodes(currentLevel, '');
             }}
-            className="px-3 py-2 bg-slate-100 text-slate-500 rounded-xl font-bold text-xs active:scale-95 transition-all cursor-pointer"
+            className="px-3 py-2 bg-slate-100 text-slate-500 rounded-lg font-bold text-xs active:scale-95 transition-all cursor-pointer"
           >
             All
           </button>
         </div>
       </AdminPanel>
-    </div>
+    </ModuleWrapper>
   );
 }
