@@ -5,6 +5,7 @@ import { createContext, useContext, useState, useEffect, ReactNode } from 'react
 type UserContextType = {
   name: string;
   isLoggedIn: boolean;
+  isAdmin: boolean;
   sessionChecked: boolean;
   login: (name: string) => void;
   logout: () => void;
@@ -21,7 +22,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const savedName = sessionStorage.getItem('cafeTrainerName');
     if (savedName) {
-      setName(savedName);
+      setName(savedName); // eslint-disable-line
       setIsLoggedIn(true);
     }
     setSessionChecked(true);
@@ -40,8 +41,10 @@ export function UserProvider({ children }: { children: ReactNode }) {
     sessionStorage.removeItem('cafeTrainerName');
   };
 
+  const isAdmin = name.toLowerCase() === 'admin';
+
   return (
-    <UserContext.Provider value={{ name, isLoggedIn, sessionChecked, login, logout }}>
+    <UserContext.Provider value={{ name, isLoggedIn, isAdmin, sessionChecked, login, logout }}>
       {children}
     </UserContext.Provider>
   );

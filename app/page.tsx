@@ -63,7 +63,7 @@ export default function CafeTrainer() {
   // Screen 2: Course Selection
   return (
     <div className="min-h-screen bg-slate-50 font-sans">
-      <header className="bg-white px-6 pt-12 pb-6 border-b border-slate-100 shadow-sm">
+      <header className="bg-white p-6 border-b border-slate-100 shadow-sm">
         <div className="flex justify-between items-center">
           <div>
             <p className="text-slate-400 text-sm font-medium uppercase tracking-wider">Staff Member</p>
