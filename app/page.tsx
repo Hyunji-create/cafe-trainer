@@ -91,10 +91,10 @@ export default function CafeTrainer() {
         alert("Coming soon!");
       }
     }}
-    className="w-full bg-white p-6 rounded-3xl shadow-sm border border-slate-100 flex items-center justify-between active:scale-95 transition-all mb-4 cursor-pointer"
+    className="w-full bg-white p-4 sm:p-6 rounded-2xl sm:rounded-3xl shadow-sm border border-slate-100 flex items-center justify-between active:scale-95 transition-all mb-3 sm:mb-4 cursor-pointer"
   >
     <div className="flex items-center gap-4 text-left">
-      <div className="w-12 h-12 bg-blue-50 rounded-2xl flex items-center justify-center text-2xl">
+      <div className="w-12 h-12 bg-blue-50 rounded-xl sm:rounded-2xl flex items-center justify-center text-2xl">
         {course.icon}
       </div>
       <div>
@@ -102,7 +102,6 @@ export default function CafeTrainer() {
         <p className="text-[10px] text-slate-400">TAP TO START</p>
       </div>
     </div>
-    <div className="text-slate-300 font-bold pr-2">NEXT</div>
   </button>
 ))}
         </div>
